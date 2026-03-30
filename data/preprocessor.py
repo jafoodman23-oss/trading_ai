@@ -11,13 +11,15 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-# Try pandas-ta first; fall back to our own implementations
+# Try ta library; fall back to our own implementations
 try:
-    import pandas_ta as ta
-    PANDAS_TA = True
-except ImportError:
+    import ta as _ta_lib
+    TA_LIB = True
     PANDAS_TA = False
-    logger.warning("pandas-ta not available — using built-in indicator implementations")
+except ImportError:
+    TA_LIB = False
+    PANDAS_TA = False
+    logger.warning("ta library not available — using built-in indicator implementations")
 
 from utils.indicators import (
     ema, sma, rsi as _rsi, macd as _macd, bollinger_bands as _bb,
