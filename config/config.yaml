@@ -1,0 +1,92 @@
+mode: "paper"  # "paper" or "live" — only change this to switch modes
+
+alpaca:
+  paper_api_key: "YOUR_PAPER_API_KEY"
+  paper_api_secret: "YOUR_PAPER_API_SECRET"
+  paper_base_url: "https://paper-api.alpaca.markets"
+  live_api_key: "YOUR_LIVE_API_KEY"
+  live_api_secret: "YOUR_LIVE_API_SECRET"
+  live_base_url: "https://api.alpaca.markets"
+
+symbols:
+  - "SPY"
+  - "AAPL"
+  - "TSLA"
+  - "QQQ"
+  - "NVDA"
+
+trading:
+  initial_capital: 100000
+  max_position_pct: 0.20
+  stop_loss_pct: 0.02
+  take_profit_pct: 0.04
+  commission_bps: 1
+  slippage_bps: 1
+
+model:
+  learning_rate: 0.0003
+  batch_size: 64
+  n_steps: 2048
+  training_timesteps: 500000
+  lookback_window: 60
+  hidden_size: 128
+  lstm_layers: 2
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  n_epochs: 10
+
+risk:
+  max_drawdown_halt: 0.15
+  daily_loss_limit: 0.05
+  max_open_positions: 5
+  kelly_fraction: 0.25
+  atr_multiplier_stop: 2.0
+  atr_multiplier_take: 4.0
+
+continuous_training:
+  enabled: true
+  retrain_every_n_bars: 500
+  performance_threshold: 0.5
+  min_trades_for_eval: 10
+  eval_window_bars: 200
+
+data:
+  timeframe: "1Min"
+  historical_days: 365
+  features:
+    - "rsi_7"
+    - "rsi_14"
+    - "rsi_21"
+    - "macd_line"
+    - "macd_signal"
+    - "macd_hist"
+    - "bb_upper_pct"
+    - "bb_lower_pct"
+    - "bb_bandwidth"
+    - "ema_9_dist"
+    - "ema_21_dist"
+    - "ema_50_dist"
+    - "ema_200_dist"
+    - "atr_14_norm"
+    - "stoch_k"
+    - "stoch_d"
+    - "cci_20"
+    - "williams_r"
+    - "adx_14"
+    - "obv_zscore"
+    - "volume_ratio"
+    - "return_1"
+    - "return_5"
+    - "return_10"
+    - "return_20"
+    - "hl_range_norm"
+    - "gap"
+
+paths:
+  models_dir: "checkpoints"
+  logs_dir: "logs"
+  db_path: "trading_ai.db"
