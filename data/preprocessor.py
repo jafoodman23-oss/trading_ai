@@ -161,9 +161,13 @@ class FeatureEngineer:
         # Clip extreme values to [-10, 10] to avoid exploding gradients
         feat = feat.clip(-10, 10)
 
+        # Align close prices to the same rows that survived dropna
+        aligned_close = close.reindex(feat.index)
+
         arr = feat.values.astype(np.float32)
+        prices_arr = aligned_close.values.astype(np.float32)
         self._n_features = arr.shape[1]
-        return arr
+        return arr, prices_arr
 
     def compute_features_multi(
         self, data: Dict[str, pd.DataFrame]

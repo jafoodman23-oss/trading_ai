@@ -51,8 +51,8 @@ class Trainer:
         self.agent = agent
         self.storage = storage
         self.evaluator = evaluator or Evaluator()
-        self.fetcher = HistoricalDataFetcher(settings)
-        self.feature_engineer = FeatureEngineer(settings)
+        self.fetcher = HistoricalDataFetcher(settings, storage)
+        self.feature_engineer = FeatureEngineer(settings.data.features)
 
         self._best_sharpe: float = -float("inf")
         self._total_training_steps: int = 0
@@ -114,7 +114,10 @@ class Trainer:
                 logger.info(f"{symbol}: {len(features)} bars, {features.shape[1]} features")
 
                 # Persist to DB
-                self.storage.save_bars(symbol, df)
+                df_to_save = df.copy().reset_index()
+                if "timestamp" not in df_to_save.columns and df_to_save.columns[0] != "timestamp":
+                    df_to_save = df_to_save.rename(columns={df_to_save.columns[0]: "timestamp"})
+                self.storage.insert_bars(df_to_save, symbol)
 
             except Exception as e:
                 logger.error(f"Failed to fetch/process {symbol}: {e}")

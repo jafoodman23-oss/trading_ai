@@ -355,7 +355,7 @@ def cmd_backtest(args, settings):
     logger.info(f"Backtest: {symbols} | {start.date()} → {end.date()}")
 
     fetcher = HistoricalDataFetcher(settings)
-    engineer = FeatureEngineer(settings)
+    engineer = FeatureEngineer(settings.data.features)
     storage = DataStorage(settings.paths.db_path)
     evaluator = Evaluator()
 

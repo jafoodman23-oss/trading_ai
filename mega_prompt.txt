@@ -1,0 +1,771 @@
+================================================================================
+ADAPTIVE MULTI-REGIME TRADING SYSTEM - COMPLETE 8-PHASE BUILD
+================================================================================
+
+GOAL: Build a genuinely self-adapting trading AI that learns market regimes, 
+adapts strategy allocation in real-time, detects when it's broken, and 
+continuously improves autonomously.
+
+DO NOT ASK QUESTIONS. DO NOT REQUEST CONFIRMATION. 
+JUST GENERATE COMPLETE, WORKING CODE.
+
+================================================================================
+PART 1: ARCHITECTURE OVERVIEW
+================================================================================
+
+Core Innovation: Strategies don't stay static. They weight themselves based on 
+live performance in each market regime. The system monitors itself and retrains 
+when performance drops. RL agents learn optimal position sizing. Meta-learner 
+detects problems and fixes them autonomously.
+
+Tech Stack:
+- Python 3.10+
+- NumPy, Pandas, scikit-learn
+- PyTorch (LSTM regime detector)
+- Stable-Baselines3 (PPO for position sizing)
+- Alpaca API (paper + live trading)
+- TA-Lib or equivalent (technical indicators)
+
+Project Structure (generate all of this):
+```
+generated_system/
+├── main.py (entry point)
+├── config/
+│   └── config.yaml (API keys, parameters)
+├── data/
+│   ├── data_fetcher.py (load OHLCV)
+│   └── historical/ (cache)
+├── models/
+│   ├── regime_detector.py (LSTM classifier)
+│   ├── regime_detector_training.py
+│   └── ml_predictor.py
+├── strategies/
+│   ├── momentum.py
+│   ├── mean_reversion.py
+│   ├── volatility_mean_reversion.py
+│   ├── support_resistance.py
+│   └── ensemble.py
+├── trading/
+│   ├── executor.py (place orders)
+│   ├── adaptive_weighting.py (dynamic weights)
+│   ├── performance_tracker.py (track P&L)
+│   └── position_manager.py
+├── rl/
+│   ├── position_sizing_env.py (gym environment)
+│   ├── position_sizing_agent.py (PPO agent)
+│   └── rl_training.py
+├── backtesting/
+│   ├── walk_forward_backtester.py
+│   ├── scenario_tester.py
+│   └── monte_carlo_simulator.py
+├── monitoring/
+│   ├── performance_monitor.py (Sharpe, DD, etc)
+│   ├── auto_retraining.py (detect & retrain)
+│   ├── alerts.py (warn on thresholds)
+│   └── logging.py
+├── requirements.txt
+└── README.md
+```
+
+================================================================================
+PART 2: PHASE 1 - FIX & BASELINE (COMPLETE)
+================================================================================
+
+Phase 1 Goals:
+- Load historical data cleanly (365+ days)
+- Calculate all technical indicators
+- Build walk-forward backtester
+- Validate metrics: Sharpe, drawdown, win rate
+- Get baseline strategy beating SPY
+
+COMPONENT 2.1: Data Pipeline
+```
+Class: HistoricalDataFetcher
+- Load 3+ years SPY 1-day OHLCV
+- Source: Yahoo Finance, Alpha Vantage, or mock data
+- Output: Pandas DataFrame (date, open, high, low, close, volume)
+- NO NaNs, NO duplicates, NO gaps
+- Calculate indicators: RSI(14), MACD(12,26,9), Bollinger(20,2), ATR(14), EMA(20,50)
+- All dates sequential, all numeric
+```
+
+COMPONENT 2.2: Walk-Forward Backtester
+```
+Class: WalkForwardBacktester
+- Train window: 6 months (126 trading days)
+- Test window: 1 month (21 trading days)
+- Stride: 1 week (slide forward)
+- Include: commissions (0.001% per side), slippage (0.01% market impact)
+- For each window:
+  * Train models (regime detector, strategies)
+  * Backtest on test data
+  * Calculate: Sharpe, return, max drawdown, win rate, profit factor
+- Output: DataFrame with metrics per window, average across all windows
+```
+
+COMPONENT 2.3: Baseline Metrics
+```
+Calculate for every backtest:
+- Sharpe Ratio (risk-adjusted return)
+- Annual Return %
+- Max Drawdown %
+- Win Rate %
+- Profit Factor (avg win / avg loss)
+- Trade Count
+- Average Trade Duration (days)
+
+Success Targets (must beat these):
+- Sharpe > 0.8
+- Return > 12% annual
+- Max DD < 15%
+- Win Rate > 48%
+- Profit Factor > 1.2
+```
+
+Generate complete, clean code for Phase 1. NO ERRORS. This must work.
+
+================================================================================
+PART 3: PHASE 2 - MARKET REGIME DETECTOR (COMPLETE)
+================================================================================
+
+Phase 2 Goal: Classify market into one of 5 regimes in real-time.
+
+COMPONENT 3.1: Regime Definitions
+```
+Regime 0: Trending_Up
+  - Price > 50-day EMA
+  - Positive momentum (MACD > signal)
+  - Lower volatility relative to average
+  
+Regime 1: Trending_Down
+  - Price < 50-day EMA
+  - Negative momentum (MACD < signal)
+  - Lower volatility
+
+Regime 2: Ranging
+  - Price oscillates between 20-day high/low
+  - No clear trend (MACD near zero)
+  - Low volatility
+
+Regime 3: Volatile
+  - ATR > 1.5x average
+  - Large daily swings
+  - Price near extremes
+
+Regime 4: Breakout_Forming
+  - Price consolidating after volatility
+  - Bollinger bands narrowing
+  - Volume increasing
+```
+
+COMPONENT 3.2: LSTM Regime Classifier
+```
+Input Features (for each candle):
+- Normalized price (close - 50day_MA) / ATR
+- RSI(14) normalized
+- MACD (value - signal) / ATR
+- Bollinger band position ((close - lower) / (upper - lower))
+- Log returns (5-day rolling)
+- Volatility (20-day rolling std)
+- Volume ratio (current vol / avg vol)
+
+Model: LSTM with:
+- 2 layers, 64 units each
+- Dropout 0.3
+- Sequence length: 20 days
+- Output: 5 classes (regimes)
+- Loss: CrossEntropyLoss
+- Optimizer: Adam
+
+Training:
+- Train on 80% of data
+- Validate on 20% (non-overlapping)
+- Epochs: 50
+- Batch size: 32
+- Save best model based on validation accuracy
+- Print: regime distribution (should have all 5 regimes)
+```
+
+COMPONENT 3.3: Real-Time Regime Detection
+```
+On each new candle:
+- Calculate features
+- Run LSTM
+- Output: regime class (0-4)
+- Confidence: softmax probability
+- Smooth: if regime changes 2 days in a row, accept; else stay
+
+Print daily: "Regime: Trending_Up (confidence 0.87)"
+```
+
+Generate complete LSTM regime detector. Must load/train cleanly.
+
+================================================================================
+PART 4: PHASE 3 - STRATEGY ENSEMBLE (COMPLETE)
+================================================================================
+
+Phase 4 Goal: 5 independent strategies, each voting -1/0/+1 independently.
+
+STRATEGY 1: Momentum (Trend Following)
+```
+Signal:
+  IF price > 50-day EMA AND RSI > 60 AND MACD > signal line:
+    signal = +1 (buy)
+  ELIF price < 50-day EMA AND RSI < 40 AND MACD < signal line:
+    signal = -1 (short)
+  ELSE:
+    signal = 0 (hold)
+
+Exit:
+  IF signal was +1 and (RSI > 80 OR price < 50-day EMA):
+    close position
+  IF signal was -1 and (RSI < 20 OR price > 50-day EMA):
+    close position
+
+Target Regime: Trending (performs best when market is trending)
+```
+
+STRATEGY 2: Mean Reversion
+```
+Signal:
+  IF RSI < 30 AND price > 20-day MA:
+    signal = +1 (bounce buy)
+  ELIF RSI > 70 AND price < 20-day MA:
+    signal = -1 (bounce short)
+  ELSE:
+    signal = 0
+
+Exit:
+  IF position has been open 5 days OR moved 2% in profit:
+    close position
+
+Target Regime: Ranging (best in sideways markets)
+```
+
+STRATEGY 3: Volatility Mean Reversion
+```
+Signal:
+  ATR_current = 14-day average true range
+  ATR_avg = 20-day average of ATR
+  
+  IF ATR_current > 2.0 * ATR_avg AND price at 20-day high:
+    signal = -1 (fade extreme)
+  ELIF ATR_current > 2.0 * ATR_avg AND price at 20-day low:
+    signal = +1 (catch falling knife)
+  ELSE:
+    signal = 0
+
+Exit:
+  IF ATR_current < 1.5 * ATR_avg (volatility normalized):
+    close position
+
+Target Regime: Volatile (exploits vol spikes)
+```
+
+STRATEGY 4: Support/Resistance
+```
+Calculate key levels:
+- 20-day high, 20-day low
+- 50-day high, 50-day low
+- Pivot point = (H+L+C)/3
+- Round levels (450, 455, 460, etc)
+
+Signal:
+  IF price bounces +1% off support level AND close > support:
+    signal = +1
+  IF price bounces -1% off resistance level AND close < resistance:
+    signal = -1
+  ELSE:
+    signal = 0
+
+Exit:
+  IF breaks through level + 0.5% OR 3 days passed:
+    close position
+
+Target Regime: All (baseline that works everywhere)
+```
+
+STRATEGY 5: ML Predictor (Light)
+```
+Simple predictor:
+- Input: RSI, MACD, volatility, trend, momentum
+- Model: Random Forest (quick, not deep learning)
+- Target: next 5-day return > 1% or < -1%
+- Output: probability of positive next 5 days
+- Convert to signal:
+  IF prob > 0.65: signal = +1
+  IF prob < 0.35: signal = -1
+  ELSE: signal = 0
+
+Train: on historical data, retrain monthly
+
+Target Regime: All (learns overall patterns)
+```
+
+All strategies output ONLY: -1, 0, or +1
+NO NaNs, NO floats, NO other values
+
+Generate all 5 strategies cleanly. Each must be testable independently.
+
+================================================================================
+PART 5: PHASE 4 - ADAPTIVE WEIGHTING ENGINE (COMPLETE)
+================================================================================
+
+Phase 5 Goal: Weight strategies based on live performance. Adapt daily.
+
+COMPONENT 5.1: Performance Tracker
+```
+For each strategy, track:
+- Last 10 closed trades
+- Win rate (# wins / total trades)
+- Average win size ($)
+- Average loss size ($)
+- Profit factor (avg win / avg loss)
+- Sharpe of last 10 trades
+- Days since last trade
+
+Store: {strategy_name: {trades: [...], metrics: {...}}}
+```
+
+COMPONENT 5.2: Weight Calculation
+```
+For each strategy:
+  recent_performance = (win_rate * avg_win_size) / (1 + avg_loss_size)
+  
+Base weight = recent_performance / sum(all performances)
+
+Then apply regime bias:
+  IF regime == Trending:
+    weights[Momentum] += 0.05
+    weights[MeanReversion] -= 0.05
+  
+  IF regime == Ranging:
+    weights[MeanReversion] += 0.05
+    weights[Momentum] -= 0.05
+  
+  IF regime == Volatile:
+    weights[VolMeanReversion] += 0.05
+  
+  Normalize so weights sum to 1.0
+
+Apply floor: no strategy < 5% (avoid killing strategies temporarily)
+Apply ceiling: no strategy > 40% (avoid overweighting)
+
+Final: weights must sum to 100% ± 0.01%
+```
+
+COMPONENT 5.3: Daily Weight Adaptation
+```
+Every trading day:
+1. Close any positions from yesterday
+2. Calculate performance metrics
+3. Recalculate weights based on recent performance
+4. Apply regime bias
+5. Generate new signals from all 5 strategies
+6. Weight the signals: final_signal = sum(strategy_signal * weight)
+7. Execute based on weighted signal
+
+Print daily log:
+  [Date] Regime: [X], Weights: [M:20%, MR:25%, V:15%, SR:20%, ML:20%]
+  [Date] Signals: [M:1, MR:0, V:-1, SR:0, ML:1] → Final: 0.35
+```
+
+Generate complete weight engine. Must recalculate daily.
+
+================================================================================
+PART 6: PHASE 5 - RL POSITION SIZING (AMBITIOUS, MAY NEED ITERATION)
+================================================================================
+
+Phase 6 Goal: RL agent learns optimal position sizes dynamically.
+
+CHALLENGE: This is where it can get finicky. Fixed 2% sizing is simple.
+Learned sizing is more profitable but needs careful tuning.
+
+COMPONENT 6.1: RL Environment (Gym)
+```
+State:
+  - Current regime (one-hot: 5 values)
+  - Current signal strength (0-1)
+  - Account equity
+  - Current drawdown (%)
+  - Winning trades (last 10 trades win rate)
+  - Volatility regime (normal/high/low)
+  - Position exposure (current %)
+
+Action:
+  - Position size (0% to 5% of account)
+  - Continuous value between 0.0 and 0.05
+
+Reward:
+  - At close of each trade: reward = (realized_PnL / account_equity)
+  - Penalty for drawdown: reward -= (current_DD / 10) * 0.1
+  - Penalty for large positions in volatile times: reward -= (position_size - 0.02)^2
+  
+Reset:
+  - Every 10 trades or monthly
+```
+
+COMPONENT 6.2: PPO Agent
+```
+Policy Network:
+- State input: 20 dims
+- Hidden: 128 → 128 → 64
+- Action output: continuous 0-0.05
+
+Training:
+- Epochs: 10
+- Steps per epoch: 500 (trades)
+- Learning rate: 3e-4
+- Batch size: 32
+- GAE lambda: 0.95
+- Clip ratio: 0.2
+
+Train on: historical backtest data (offline learning first)
+Then: retrain on live paper trading data
+
+Safeguards:
+- Position size never > 5%
+- Total exposure never > 20%
+- If agent tries weird action (size = 10%), clip to 5%
+```
+
+COMPONENT 6.3: Position Sizing Logic
+```
+Before each trade:
+
+1. Get state (regime, signal, DD, etc)
+2. RL agent outputs: position_size_pct (0-5%)
+3. Calculate: position_qty = (account_equity * position_size_pct) / current_price
+4. Check constraints:
+   - IF position_qty * current_price > 5% account:
+       position_qty = (account_equity * 0.05) / current_price
+   - IF total_exposure + position_qty * current_price > 20% account:
+       position_qty = remaining_capacity / current_price
+5. Place order: position_qty shares
+
+Log: "Position: 150 shares (2.3% of account), RL decided 2.5%"
+```
+
+Generate RL environment and agent. Include warnings about potential edge cases.
+
+================================================================================
+PART 7: PHASE 6 - META-LEARNER LOOP (AMBITIOUS, WILL ITERATE)
+================================================================================
+
+Phase 7 Goal: System monitors itself, detects problems, retrains autonomously.
+
+THIS IS THE REAL INNOVATION. System doesn't need a human to tell it something's wrong.
+
+COMPONENT 7.1: Performance Monitor
+```
+Every day, calculate:
+- Sharpe ratio (last 20 trades)
+- Win rate (last 20 trades)
+- Max drawdown (last 10 trades)
+- Average trade duration
+- Profit factor
+
+Compare to:
+- 2-week rolling average
+- 1-month rolling average
+- Backtest historical average
+
+Flag if:
+- Sharpe dropped > 30% from 2-week avg → Strategy degradation
+- Win rate dropped > 10% → Timing broken
+- Max DD > 15% → Risk management failure
+- No trades in 5 days → No signal generation
+```
+
+COMPONENT 7.2: Auto-Retraining Logic
+```
+IF Sharpe < 0.5:
+  ✓ Retrain regime detector on last 252 days
+  ✓ Retrain RL agent on last 1000 trades
+  ✓ Reset strategy weights to equal 20% each
+  ✓ Log: "RETRAINING TRIGGERED: Sharpe dropped below threshold"
+
+IF strategy win rate < 30% for 10+ days:
+  ✓ Reduce its weight to 5%
+  ✓ Stop trading it
+  ✓ Log: "Strategy [X] paused: underperforming"
+  ✓ Retrain it on latest data
+
+IF drawdown > 10%:
+  ✓ Reduce all position sizes by 50%
+  ✓ Increase mean reversion weight (contrarian)
+  ✓ Log: "DRAWDOWN ALARM: Reduced sizing"
+
+IF regime detected shifting (3 consecutive regime changes):
+  ✓ Retrain regime detector (market is unstable)
+  ✓ Reduce momentum weight
+  ✓ Increase mean reversion
+  ✓ Log: "REGIME SHIFT: Model retraining"
+
+IF RL agent produces avg position size < 0.5% or > 4.5%:
+  ✓ Agent is learning wrong patterns
+  ✓ Retrain with different hyperparameters
+  ✓ Log: "RL AGENT ANOMALY: Retraining"
+```
+
+COMPONENT 7.3: Safeguards Against Overfitting
+```
+RULE: Never retrain more than once per week
+RULE: Always keep validation data (most recent 10 trades) separate
+RULE: If retraining happens > 3x in a month, disable auto-retraining
+RULE: Log ALL retraining events with reason + metrics before/after
+RULE: Keep previous model + weights as fallback
+RULE: If new model performs worse than old, revert
+```
+
+Generate complete monitoring and auto-retraining system. Include logging.
+
+================================================================================
+PART 8: PHASE 7 - RIGOROUS TESTING & VALIDATION (COMPLETE)
+================================================================================
+
+Phase 8 Goal: Prove the system works before paper trading.
+
+COMPONENT 8.1: Walk-Forward Validation
+```
+Already done in Phase 1, but run again on full system:
+
+Train: 6 months (126 days)
+Test: 1 month (21 days)
+Stride: 1 week
+
+For EACH window:
+1. Train regime detector
+2. Train all strategies
+3. Train RL agent
+4. Run full system on test data
+5. Calculate metrics
+6. Save results
+
+Print table:
+  Window | Sharpe | Return | MaxDD | WinRate | ProfitFactor
+  1-6    | 1.2    | 15%    | 8%    | 52%     | 1.5
+  6-7    | 0.9    | 10%    | 12%   | 48%     | 1.2
+  ...
+  Avg    | 1.05   | 12.5%  | 9.5%  | 50%     | 1.35
+
+MUST PASS:
+- Sharpe > 0.8 average
+- Return > 10% average
+- Max DD < 12% average
+- Win rate > 48% average
+```
+
+COMPONENT 8.2: Scenario Testing
+```
+Test system on edge cases:
+
+Scenario 1: Flash Crash (5% down, 5% up in 2 days)
+  → System should reduce sizes, not panic sell
+
+Scenario 2: Gap Down at Open (3% gap)
+  → Check if stops worked, system recovers
+
+Scenario 3: Volatility Spike (ATR 3x normal)
+  → Vol strategy should trigger, position sizing reduce
+
+Scenario 4: 30-day Ranging Market
+  → Mean reversion should dominate, momentum should reduce
+
+Scenario 5: No Trades (boring market, low vol, RSI 40-60)
+  → System should sit, accumulate capital, wait
+```
+
+COMPONENT 8.3: Monte Carlo Validation
+```
+For each backtest window:
+1. Extract all trades (entry, exit, PnL)
+2. Shuffle trade order (but keep size same)
+3. Recalculate cumulative PnL
+4. Repeat 1000 times
+5. Calculate: 1st percentile, 50th percentile, 99th percentile
+
+If 1st percentile is still positive:
+  → System is robust to trade order
+  → Not just lucky, has genuine edge
+```
+
+Generate complete validation suite. Must print clear pass/fail.
+
+================================================================================
+PART 9: PHASE 8 - PAPER TRADING → LIVE (INTEGRATION READY)
+================================================================================
+
+Phase 9 Goal: Hook to Alpaca, paper trade, then go live.
+
+COMPONENT 9.1: Alpaca Integration
+```
+Config file (config/config.yaml):
+  alpaca:
+    api_key: "YOUR_KEY"
+    secret_key: "YOUR_SECRET"
+    base_url: "https://paper-trading-api.alpaca.markets"  # Paper
+    # base_url: "https://api.alpaca.markets"  # Live (WARNING)
+
+Connection:
+  - Authenticate with API key
+  - Check account balance
+  - Stream market data (real-time)
+  - Place orders asynchronously
+  - Track positions
+
+Classes:
+  - AlpacaConnector: authenticate, send orders, receive fills
+  - OrderManager: place, cancel, monitor orders
+  - PositionManager: track open positions, P&L
+  - MarketDataFeed: real-time bars and quotes
+```
+
+COMPONENT 9.2: Paper Trading Mode
+```
+Run full system on live market data but with fake money:
+- Stream real-time SPY quotes
+- Generate signals from regime detector
+- Calculate weighted signal
+- RL agent decides position size
+- Place paper orders (recorded, not real)
+- Track fills at market price
+- Calculate P&L
+- Monitor meta-learner (should detect issues in real time)
+
+Log every decision:
+  [2024-01-15 14:30] Regime: Trending | Signal: 0.67 | RL Size: 3.2% | Order: BUY 100 SPY @ 465.23
+  [2024-01-16 10:15] Close: SELL 100 SPY @ 466.50 | P&L: +$127
+
+Run for 4+ weeks. Track:
+- Does it beat backtest? (usually underperforms 20-30%)
+- Are fills as expected? (slippage normal?)
+- Do auto-retrains happen? (meta-learner active?)
+- Any crashes? (edge cases?)
+```
+
+COMPONENT 9.3: Live Trading (After Validation)
+```
+After 4+ weeks paper trading:
+
+1. Start TINY: $500-1000 account
+2. Same system, same parameters, REAL money
+3. Position sizes scaled to account
+4. Daily reconciliation: Alpaca position vs system state
+5. Alerts if P&L diverges > 5%
+6. Circuit breaker: halt trading if DD > 10%
+
+Scale up ONLY after 3+ months consistent gains:
+- Month 1: $500
+- Month 2-3: Prove it works, don't scale
+- Month 4+: If +15%+ return AND win rate > 50%, scale to $2-5k
+- Month 7+: If consistent, scale to $10k+
+
+NEVER scale on a losing month.
+```
+
+Generate complete Alpaca integration code. Must handle paper + live seamlessly.
+
+================================================================================
+PART 10: VALIDATION SUITE (CRITICAL)
+================================================================================
+
+After generating all code, the system MUST include validation checks:
+
+CHECK 1: Data Integrity
+✓ OHLCV shape is (N, 5) where N >= 252*3 (3 years)
+✓ No NaN, no inf, all numeric
+✓ No price jumps > 10% day-to-day
+✓ Dates sequential, no gaps
+
+CHECK 2: Regime Detector
+✓ All 5 regime classes present
+✓ No regime dominates > 70%
+✓ Regime changes 3-8 times per month
+✓ LSTM trains without errors
+
+CHECK 3: Strategy Signals
+✓ All outputs -1, 0, +1 (never float)
+✓ No NaN signals
+✓ Each strategy generates 5-80% of days (active but not overactive)
+✓ Strategies not perfectly correlated (independence)
+
+CHECK 4: Weighting Engine
+✓ Weights sum to 100% ± 0.1%
+✓ No weight is NaN or negative
+✓ Weights change 5-20% day-to-day (adaptive)
+✓ High-weight strategies have higher recent performance
+
+CHECK 5: Position Sizing
+✓ Never > 5% per trade
+✓ Never > 20% total exposure
+✓ Never > 3 concurrent positions
+✓ RL agent outputs within bounds
+
+CHECK 6: Backtest Metrics
+✓ Sharpe > 0.8
+✓ Return > 12% annual
+✓ Max DD < 15%
+✓ Win rate > 48%
+✓ Profit factor > 1.2
+
+CHECK 7: Integration
+✓ Data flows: indicators → regime → strategies → weights → sizing → orders
+✓ No step produces NaN or crashes
+✓ Mock Alpaca orders produce realistic fills
+✓ P&L calculation is correct
+
+CHECK 8: Edge Cases
+✓ Account never goes negative
+✓ Stops work correctly
+✓ No infinite loops
+✓ Graceful handling of gaps/halts
+
+If ANY check fails, print:
+  FAILURE: [check name]
+  REASON: [specific error]
+  LOCATION: [which component]
+  ACTION: [what to fix]
+
+If ALL checks pass, print:
+  ✅ SYSTEM READY FOR PAPER TRADING
+  Backtest Sharpe: 1.05
+  Expected annual return: 12.5%
+  Max drawdown: 9%
+  Known risks: [list any caveats]
+
+================================================================================
+PART 11: OUTPUT REQUIREMENTS
+================================================================================
+
+GENERATE:
+1. All Python files (main.py, strategies, models, RL, backtesting, monitoring)
+2. config/config.yaml (template)
+3. requirements.txt (all dependencies)
+4. README.md (how to run, what to expect)
+5. Validation logs (all checks pass/fail)
+6. Sample backtest results (CSV with all trades)
+
+The code MUST be:
+- Runnable: python main.py train --symbols SPY --days 365
+- Modular: easy to replace one strategy
+- Logged: every decision is tracked
+- Tested: includes unit tests
+- Ready for Alpaca: no "TODO" sections
+
+CRITICAL: NO ERRORS. NO CRASHES. NO INCOMPLETE CODE.
+If you can't finish something, clearly mark it with:
+  # TODO: [reason] - requires human decision
+
+But there should be very few TODOs. Build completely.
+
+================================================================================
+FINAL INSTRUCTION
+================================================================================
+
+GENERATE EVERYTHING. START NOW. DO NOT STOP UNTIL COMPLETE.
+This is a complex system but it is 100% buildable.
+Do not ask clarifying questions. Make reasonable assumptions and document them.
+Make sure the code is production-grade, well-structured, and fully integrated.
+
+Output the complete system ready to run.

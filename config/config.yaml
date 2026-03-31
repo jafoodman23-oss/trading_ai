@@ -1,8 +1,8 @@
 mode: "paper"  # "paper" or "live" — only change this to switch modes
 
 alpaca:
-  paper_api_key: "YOUR_PAPER_API_KEY"
-  paper_api_secret: "YOUR_PAPER_API_SECRET"
+  paper_api_key: PK65Q3VS755PVPOXDRLXZMMYLE
+  paper_api_secret: Ga4pHpRhvBuXaXaR8MbofpeTL2By8uLpKBSTSMkze25s
   paper_base_url: "https://paper-api.alpaca.markets"
   live_api_key: "YOUR_LIVE_API_KEY"
   live_api_secret: "YOUR_LIVE_API_SECRET"
